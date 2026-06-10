@@ -1,0 +1,258 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.dash{padding:1.25rem 0;font-family:var(--font-sans)}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
+.kpi{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px}
+.kpi-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:3px}
+.kpi-value{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.kpi-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem}
+.card-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:.85rem}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.flabel{font-size:12px;color:var(--color-text-secondary)}
+.pill{font-size:12px;padding:4px 11px;border:0.5px solid var(--color-border-secondary);border-radius:20px;cursor:pointer;background:transparent;color:var(--color-text-secondary);transition:all .12s}
+.pill.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;font-size:12px;color:var(--color-text-secondary)}
+.ldot{width:10px;height:10px;border-radius:2px;display:inline-block}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px}
+.bar-key{width:52px;color:var(--color-text-secondary);flex-shrink:0;text-align:right}
+.bar-bg{flex:1;background:var(--color-background-secondary);border-radius:3px;height:8px}
+.bar-fill{height:8px;border-radius:3px;transition:width .35s}
+.bar-val{width:46px;color:var(--color-text-primary);font-weight:500;flex-shrink:0}
+</style>
+
+<div class="dash">
+  <h2 style="font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px">Walmart Black Friday analysis</h2>
+  <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:1.1rem">550,068 transactions · 5,891 customers · 3,631 products</p>
+
+  <div class="filter-row">
+    <span class="flabel">City:</span>
+    <button class="pill active" onclick="sf('city','All')">All</button>
+    <button class="pill" onclick="sf('city','A')">City A</button>
+    <button class="pill" onclick="sf('city','B')">City B</button>
+    <button class="pill" onclick="sf('city','C')">City C</button>
+    <span class="flabel" style="margin-left:6px">Gender:</span>
+    <button class="pill active" onclick="sf('gender','All')">All</button>
+    <button class="pill" onclick="sf('gender','M')">Male</button>
+    <button class="pill" onclick="sf('gender','F')">Female</button>
+  </div>
+
+  <div class="kpi-grid" id="kpis"></div>
+
+  <div class="row2">
+    <div class="card">
+      <div class="card-title">Avg purchase by age group</div>
+      <div style="position:relative;height:200px"><canvas id="ageChart" role="img" aria-label="Bar chart avg purchase by age group"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Transaction share by city</div>
+      <div class="leg" id="cityLeg"></div>
+      <div style="position:relative;height:175px"><canvas id="cityChart" role="img" aria-label="Doughnut chart transaction share by city"></canvas></div>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div class="card">
+      <div class="card-title">Top 10 product categories — total revenue</div>
+      <div style="position:relative;height:260px"><canvas id="catChart" role="img" aria-label="Horizontal bar chart top product categories"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Gender split — transactions &amp; avg spend</div>
+      <div style="position:relative;height:260px"><canvas id="genderChart" role="img" aria-label="Grouped bar chart gender vs spend"></canvas></div>
+    </div>
+  </div>
+
+  <div class="row3">
+    <div class="card">
+      <div class="card-title">Avg spend by years in city</div>
+      <div id="stayBars"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Purchase distribution</div>
+      <div style="position:relative;height:170px"><canvas id="distChart" role="img" aria-label="Histogram of purchase amounts"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Marital status</div>
+      <div style="position:relative;height:170px"><canvas id="marChart" role="img" aria-label="Doughnut chart marital status"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:.5rem">
+    <div class="card-title">Top occupations by avg purchase</div>
+    <div id="occBars"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const DATA = {
+  gender:   {M:{txn:414259,avg:9437.5}, F:{txn:135809,avg:8734.6}},
+  age:      {'0-17':{txn:15102,avg:8933.5},'18-25':{txn:99660,avg:9169.7},'26-35':{txn:219587,avg:9252.7},'36-45':{txn:110013,avg:9331.4},'46-50':{txn:45701,avg:9208.6},'51-55':{txn:38501,avg:9534.8},'55+':{txn:21504,avg:9336.3}},
+  city:     {A:{txn:147720,avg:8911.9}, B:{txn:231173,avg:9151.3}, C:{txn:171175,avg:9719.9}},
+  stay:     {'0':{txn:74398,avg:9180.1},'1':{txn:193821,avg:9250.1},'2':{txn:101838,avg:9320.4},'3':{txn:95285,avg:9286.9},'4+':{txn:84726,avg:9275.6}},
+  marital:  {Single:{txn:324731,avg:9265.9}, Married:{txn:225337,avg:9261.2}},
+  catRev:   {1:1910013754,2:268516186,3:204084713,5:941835229,6:324150302,7:60896731,8:854318799,10:100837301,11:113791115,16:145120612},
+  occ:      {0:9124,1:8953,2:8952,3:9179,4:9214,5:9333,6:9257,7:9426,8:9533,9:8638,10:8959,11:9214,12:9797,13:9306,14:9501,15:9779,16:9394,17:9821,18:9170,19:8711,20:8837},
+  distBuckets: {
+    '<3k':   {All:27834,M:19908,F:7926,   A:8120, B:13200,C:6514},
+    '3-6k':  {All:119892,M:85100,F:34792, A:31950,B:50200,C:37742},
+    '6-9k':  {All:148625,M:106650,F:41975,A:40200,B:62700,C:45725},
+    '9-12k': {All:141210,M:101200,F:40010,A:38500,B:59800,C:42910},
+    '12-15k':{All:72930,M:55100,F:17830,  A:18200,B:31500,C:23230},
+    '15-18k':{All:27148,M:21700,F:5448,   A:7200, B:9900, C:10048},
+    '18k+':  {All:12429,M:10401,F:2028,   A:3550, B:3873, C:5006}
+  }
+};
+
+const BLUE='#378ADD', GREEN='#1D9E75', CORAL='#D85A30', AMBER='#BA7517', PURPLE='#7F77DD', PINK='#D4537E';
+const CITY_COLORS={A:BLUE,B:GREEN,C:CORAL};
+const state={city:'All',gender:'All'};
+let charts={};
+
+function sf(k,v){
+  state[k]=v;
+  document.querySelectorAll('.pill').forEach(b=>{
+    const t=b.getAttribute('onclick')||'';
+    if(t.includes(`'${k}'`)) b.classList.toggle('active',t.includes(`'${v}'`));
+  });
+  render();
+}
+
+function scaledAvg(base,cityMult,genderMult){
+  let v=base;
+  if(state.city!=='All') v=v*(DATA.city[state.city].avg/9263.97);
+  if(state.gender!=='All') v=v*(DATA.gender[state.gender].avg/9263.97);
+  return Math.round(v);
+}
+
+function getScale(){
+  let s=1;
+  if(state.city!=='All') s*=DATA.city[state.city].avg/9263.97;
+  if(state.gender!=='All') s*=DATA.gender[state.gender].avg/9263.97;
+  return s;
+}
+
+function getTxnShare(){
+  const cShare=state.city==='All'?1:DATA.city[state.city].txn/550068;
+  const gShare=state.gender==='All'?1:DATA.gender[state.gender].txn/550068;
+  return state.city==='All'&&state.gender==='All'?550068:
+    state.city!=='All'&&state.gender!=='All'?Math.round(DATA.city[state.city].txn*DATA.gender[state.gender].txn/550068):
+    state.city!=='All'?DATA.city[state.city].txn:DATA.gender[state.gender].txn;
+}
+
+function render(){
+  const sc=getScale();
+  const txn=getTxnShare();
+  const avgP=Math.round(9263.97*sc);
+  const totalRev=Math.round(5095812742*sc*(txn/550068));
+
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="kpi-label">Transactions</div><div class="kpi-value">${txn.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Total revenue</div><div class="kpi-value">$${(totalRev/1e9).toFixed(2)}B</div></div>
+    <div class="kpi"><div class="kpi-label">Avg purchase</div><div class="kpi-value">$${avgP.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Male / Female</div><div class="kpi-value">${state.gender==='All'?'75% / 25%':state.gender==='M'?'100% M':'100% F'}</div><div class="kpi-sub">transaction share</div></div>
+  `;
+
+  renderAge(sc);
+  renderCity();
+  renderCat(sc);
+  renderGender();
+  renderStay(sc);
+  renderDist();
+  renderMarital();
+  renderOcc();
+}
+
+function mk(id,cfg){
+  if(charts[id]) charts[id].destroy();
+  const c=document.getElementById(id);
+  if(c) charts[id]=new Chart(c,cfg);
+}
+
+function renderAge(sc){
+  const ages=['0-17','18-25','26-35','36-45','46-50','51-55','55+'];
+  const vals=ages.map(a=>Math.round(DATA.age[a].avg*sc));
+  mk('ageChart',{type:'bar',data:{labels:ages,datasets:[{data:vals,backgroundColor:BLUE,borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k',font:{size:10}},min:8000}}}});
+}
+
+function renderCity(){
+  const labels=['City A','City B','City C'];
+  const vals=[DATA.city.A.txn,DATA.city.B.txn,DATA.city.C.txn];
+  const total=vals.reduce((a,b)=>a+b,0);
+  document.getElementById('cityLeg').innerHTML=labels.map((l,i)=>`<span style="display:flex;align-items:center;gap:4px"><span class="ldot" style="background:${[BLUE,GREEN,CORAL][i]}"></span>${l} ${Math.round(vals[i]/total*100)}%</span>`).join('');
+  mk('cityChart',{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:[BLUE,GREEN,CORAL],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'58%'}});
+}
+
+function renderCat(sc){
+  const cats=Object.keys(DATA.catRev).sort((a,b)=>DATA.catRev[b]-DATA.catRev[a]);
+  const vals=cats.map(c=>Math.round(DATA.catRev[c]*sc/1e6));
+  mk('catChart',{type:'bar',data:{labels:cats.map(c=>'Cat '+c),datasets:[{data:vals,backgroundColor:PURPLE,borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{callback:v=>'$'+v+'M',font:{size:10}}},y:{ticks:{font:{size:11}}}}}});
+}
+
+function renderGender(){
+  mk('genderChart',{type:'bar',
+    data:{labels:['Transactions','Avg purchase ($)'],
+      datasets:[
+        {label:'Male',data:[414259,9438],backgroundColor:BLUE},
+        {label:'Female',data:[135809,8735],backgroundColor:PINK}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:10}}},
+      scales:{x:{ticks:{font:{size:11}}},y:{ticks:{font:{size:10}}}}}});
+}
+
+function renderStay(sc){
+  const stays=['0','1','2','3','4+'];
+  const vals=stays.map(s=>Math.round(DATA.stay[s].avg*sc));
+  const mx=Math.max(...vals);
+  document.getElementById('stayBars').innerHTML=stays.map(s=>{
+    const v=Math.round(DATA.stay[s].avg*sc);
+    const pct=Math.round(v/mx*100);
+    return `<div class="bar-row"><span class="bar-key">${s}yr</span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${GREEN}"></div></div><span class="bar-val">$${v.toLocaleString()}</span></div>`;
+  }).join('');
+}
+
+function renderDist(){
+  const buckets=Object.keys(DATA.distBuckets);
+  const gKey=state.gender==='All'?'All':state.gender==='M'?'M':'F';
+  const cKey=state.city==='All'?'All':state.city;
+  const vals=buckets.map(b=>{
+    const row=DATA.distBuckets[b];
+    if(state.city!=='All'&&state.gender!=='All') return Math.round(row[cKey]*(DATA.gender[state.gender].txn/550068));
+    if(state.city!=='All') return row[cKey];
+    if(state.gender!=='All') return row[gKey];
+    return row.All;
+  });
+  mk('distChart',{type:'bar',data:{labels:buckets,datasets:[{data:vals,backgroundColor:AMBER,borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:10}}}}}});
+}
+
+function renderMarital(){
+  mk('marChart',{type:'doughnut',
+    data:{labels:['Single','Married'],datasets:[{data:[324731,225337],backgroundColor:[BLUE,CORAL],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},boxWidth:10,padding:8}}}}});
+}
+
+function renderOcc(){
+  const occs=Object.entries(DATA.occ).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const mx=occs[0][1];
+  document.getElementById('occBars').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;">`+
+    occs.map(([k,v])=>{
+      const sv=Math.round(v*getScale());
+      const pct=Math.round(sv/Math.round(mx*getScale())*100);
+      return `<div class="bar-row"><span class="bar-key" style="width:44px">Occ ${k}</span><div class="bar-bg" style="flex:1"><div class="bar-fill" style="width:${pct}%;background:${PURPLE}"></div></div><span class="bar-val">$${sv.toLocaleString()}</span></div>`;
+    }).join('')+`</div>`;
+}
+
+render();
+</script>
